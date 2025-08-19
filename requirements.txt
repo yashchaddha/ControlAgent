@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+langgraph
+langchain
+pymongo
+neo4j
+psycopg2-binary
+openai
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+python-dotenv
+pgvector
+pydantic
