@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import Union
 from ..config import SECRET_KEY
 from ..database import mongodb
-from ..neo4j_db import neo4j_service
+from neo4j_db import neo4j_service
 from ..auth import get_current_user
 
 router = APIRouter()
