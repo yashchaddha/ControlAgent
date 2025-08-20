@@ -49,22 +49,6 @@ class RAGService:
             return self._get_controls_by_category(parameters.get('risk_category'), user_id)
         elif intent == "show_controls_by_annex":
             return self._get_controls_by_annex(parameters.get('annex'), user_id)
-        elif intent == "show_risks":
-            risks = self.mongo_db.get_user_risks(user_id)
-            return {"risks": risks, "total": len(risks)}
-        elif intent == "show_risks_without_controls":
-            risks = self.mongo_db.get_user_risks(user_id, exclude_with_controls=True)
-            return {"risks": risks, "total": len(risks)}
-        elif intent == "show_risks_by_category":
-            category = parameters.get('risk_category')
-            all_risks = self.mongo_db.get_user_risks(user_id)
-            risks = [r for r in all_risks if not category or r.get("category") == category]
-            return {"risks": risks, "category": category, "total": len(risks)}
-        elif intent == "show_risks_by_impact":
-            impact = parameters.get('impact')
-            all_risks = self.mongo_db.get_user_risks(user_id)
-            risks = [r for r in all_risks if not impact or str(r.get("impact", "")).lower() == str(impact).lower()]
-            return {"risks": risks, "impact": impact, "total": len(risks)}
         elif intent == "query_controls":
             return self._get_general_query_context(query_embedding, user_id)
         else:
