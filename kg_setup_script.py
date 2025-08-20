@@ -214,31 +214,65 @@ class KnowledgeGraphBuilder:
                 for risk_doc in risk_docs:
                     if "risks" in risk_doc and isinstance(risk_doc["risks"], list):
                         # Handle FinalizedRisks structure
-                        for risk in risk_doc["risks"]:
-                            risk["user_id"] = risk_doc["user_id"]
+                        for idx, risk in enumerate(risk_doc["risks"]):
+                            # inherit context from parent document
+                            risk["user_id"] = risk_doc.get("user_id", "")
                             risk["organization_name"] = risk_doc.get("organization_name", "")
                             risk["location"] = risk_doc.get("location", "")
                             risk["domain"] = risk_doc.get("domain", "")
-                            # Ensure we have an id field
+                            # Ensure we have a stable, unique id field:
+                            # - prefer risk._id if present
+                            # - otherwise use parent_doc_id + index to guarantee uniqueness across nested risks
                             if "id" not in risk:
-                                risk["id"] = str(risk.get("_id", ""))
+                                if "_id" in risk:
+                                    risk["id"] = str(risk["_id"])
+                                else:
+                                    parent_id = str(risk_doc.get("_id", ""))
+                                    risk["id"] = f"{parent_id}_{idx}"
+                            # remove nested _id to avoid confusion downstream
+                            if "_id" in risk:
+                                try:
+                                    del risk["_id"]
+                                except Exception:
+                                    pass
                             all_risks.append(risk)
                     else:
                         # Handle individual risk documents
-                        risk_doc["id"] = str(risk_doc.get("_id", ""))
+                        if "_id" in risk_doc:
+                            risk_doc["id"] = str(risk_doc["_id"])
+                            try:
+                                del risk_doc["_id"]
+                            except Exception:
+                                pass
+                        else:
+                            risk_doc["id"] = str(risk_doc.get("id", ""))
                         all_risks.append(risk_doc)
         
         print(f"Found {len(all_risks)} risks to process...")
         
         risk_categories = set()
-        
+        processed_ids = set()
+        skipped = []
+
         for i, risk in enumerate(all_risks):
             if i % 50 == 0:
                 print(f"Processing risk {i+1}/{len(all_risks)}")
             
             risk_id = risk.get("id", "")
-            if not risk_id or not risk.get("user_id"):
+            if not risk_id:
+                skipped.append((None, "missing_id", risk))
                 continue
+
+            if not risk.get("user_id"):
+                skipped.append((risk_id, "missing_user_id", risk))
+                continue
+
+            if risk_id in processed_ids:
+                skipped.append((risk_id, "duplicate_id", risk))
+                continue
+
+            # mark as processed to avoid duplicate inserts
+            processed_ids.add(risk_id)
             
             user_context = self.mongo_db.users.find_one({"username": risk["user_id"]})
             user_domain = user_context.get("domain", "") if user_context else ""
@@ -292,9 +326,20 @@ class KnowledgeGraphBuilder:
                         updated_at = CURRENT_TIMESTAMP
                 """, (risk_id, risk["user_id"], risk_data["description"], 
                      risk_data["category"], user_domain, embedding))
+            # log successful processing for this risk
+            if i % 10 == 0:
+                print(f"Inserted/updated risk embedding and node for risk_id={risk_id}")
         
         self.postgres_conn.commit()
-        print(f"Processed {len(all_risks)} risks and {len(risk_categories)} risk categories!")
+        print(f"Processed {len(processed_ids)} unique risks, skipped {len(skipped)} items.\n")
+
+        if skipped:
+            print("Sample skipped reasons (up to 10):")
+            for s in skipped[:10]:
+                rid, reason, doc = s
+                print(f"  risk_id={rid} reason={reason}")
+
+        print(f"Total risk categories discovered: {len(risk_categories)}")
 
     def process_controls(self):
         print("Processing controls...")
