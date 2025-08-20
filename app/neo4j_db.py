@@ -66,7 +66,7 @@ class Neo4jService:
         with self.driver.session() as session:
             result = session.run("""
                 MATCH (c:Control)-[:MITIGATES]->(r:Risk {category: $risk_category})
-                WHERE c.annex_reference STARTS WITH $annex
+                WHERE c.annex_reference IS NOT NULL AND c.annex_reference STARTS WITH $annex
                 RETURN c.control_id, c.title, c.annex_reference, count(*) as usage_count
                 ORDER BY usage_count DESC
             """, annex=annex, risk_category=risk_category)

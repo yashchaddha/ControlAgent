@@ -887,7 +887,7 @@
         const selectedControlIds = selectedIndices.map((index) => pendingControls[index].id);
 
         try {
-          const data = await apiRequest("/controls/select-controls", {
+          const data = await apiRequest("/controls/store-controls", {
             method: "POST",
             body: JSON.stringify({
               session_id: currentSessionId,

@@ -1,3 +1,4 @@
+from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from ..auth import get_current_user
@@ -57,5 +58,19 @@ async def get_controls_by_risk(risk_id: str, user = Depends(get_current_user)):
     try:
         controls = mongodb.get_controls_by_risk(risk_id, user["username"])
         return {"controls": controls}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.post("/store-controls")
+async def store_controls(controls: List[Dict], user = Depends(get_current_user)):
+    try:
+        for control in controls:
+            control["user_id"] = user["username"]
+            mongodb.controls.insert_one(control)
+        return AgentResponse(
+            response="Controls stored successfully",
+            pending_selection=False
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

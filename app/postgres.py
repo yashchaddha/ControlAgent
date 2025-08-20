@@ -8,13 +8,11 @@ class PostgresVectorService:
     def __init__(self):
         try:
             if not POSTGRES_URI:
-                print("POSTGRES_URI not configured, vector search disabled")
                 self.conn = None
                 return
             self.conn = psycopg2.connect(POSTGRES_URI)
             self.create_tables()
         except Exception as e:
-            print(f"PostgreSQL connection failed: {e}")
             self.conn = None
 
     def create_tables(self):
