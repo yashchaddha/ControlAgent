@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typing Loader Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #4a5568;
+            margin-bottom: 30px;
+        }
+
+        .demo-section {
+            margin-bottom: 40px;
+        }
+
+        .demo-section h2 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+
+        .demo-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: #4299e1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #3182ce;
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background: #38a169;
+        }
+
+        .btn-success:hover {
+            background: #2f855a;
+        }
+
+        .btn-danger {
+            background: #e53e3e;
+        }
+
+        .btn-danger:hover {
+            background: #c53030;
+        }
+
+        .btn-secondary {
+            background: #718096;
+        }
+
+        .btn-secondary:hover {
+            background: #4a5568;
+        }
+
+        /* Typing Loader Styles */
+        .typing-loader {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            max-width: 80%;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .typing-loader.show {
+            display: flex;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4299e1;
+            animation: typingBounce 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0s;
+        }
+
+        @keyframes typingBounce {
+            0%, 80%, 100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .typing-text {
+            color: #718096;
+            font-size: 14px;
+            font-style: italic;
+        }
+
+        .chat-simulation {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .chat-messages {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+
+        .message.user {
+            background: #4299e1;
+            color: white;
+            margin-left: auto;
+        }
+
+        .message.agent {
+            background: white;
+            border: 1px solid #e2e8f0;
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 25px;
+            font-size: 16px;
+        }
+
+        .chat-input.disabled {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .chat-input.disabled input {
+            background: #f7fafc;
+            cursor: not-allowed;
+        }
+
+        .chat-input.disabled button {
+            background: #a0aec0;
+            cursor: not-allowed;
+        }
+
+        /* Typing Animation Styles */
+        .typing-animation {
+            overflow: hidden;
+            border-right: 2px solid #4299e1;
+            white-space: nowrap;
+            animation: typing 3s steps(40, end), blink-caret 0.75s step-end infinite;
+        }
+
+        .typing-animation.complete {
+            border-right: none;
+            animation: none;
+        }
+
+        @keyframes typing {
+            from {
+                width: 0;
+            }
+            to {
+                width: 100%;
+            }
+        }
+
+        @keyframes blink-caret {
+            from, to {
+                border-color: transparent;
+            }
+            50% {
+                border-color: #4299e1;
+            }
+        }
+
+        .message.agent.typing {
+            position: relative;
+        }
+
+        .message.agent.typing::after {
+            content: "▋";
+            color: #4299e1;
+            font-weight: bold;
+            animation: blink 1s infinite;
+            margin-left: 2px;
+        }
+
+        @keyframes blink {
+            0%, 50% {
+                opacity: 1;
+            }
+            51%, 100% {
+                opacity: 0;
+            }
+        }
+
+        .typing-content {
+            display: inline-block;
+        }
+
+        .status-indicator {
+            background: #e2e8f0;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        .status-indicator.active {
+            background: #c6f6d5;
+            color: #2f855a;
+        }
+
+        .status-indicator.error {
+            background: #fed7d7;
+            color: #c53030;
+        }
+
+        .features-list {
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .features-list h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+
+        .features-list ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .features-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #c6f6d5;
+            position: relative;
+            padding-left: 25px;
+        }
+
+        .features-list li:before {
+            content: "✅";
+            position: absolute;
+            left: 0;
+            color: #38a169;
+        }
+
+        .features-list li:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Typing Loader Demo</h1>
+        
+        <div class="demo-section">
+            <h2>🚀 Features</h2>
+            <div class="features-list">
+                <h3>What the Typing Loader Provides:</h3>
+                <ul>
+                    <li><strong>Visual Feedback:</strong> Shows users that the system is processing their query</li>
+                    <li><strong>Animated Dots:</strong> Three bouncing dots with staggered animation</li>
+                    <li><strong>Status Text:</strong> "Agent is thinking..." message</li>
+                    <li><strong>Input Disabling:</strong> Prevents multiple submissions during processing</li>
+                    <li><strong>Smooth Transitions:</strong> Slide-in animation when appearing</li>
+                    <li><strong>Error Handling:</strong> Properly hides loader on errors</li>
+                    <li><strong>Responsive Design:</strong> Works on all screen sizes</li>
+                </ul>
+            </div>
+
+            <div class="features-list" style="margin-top: 20px;">
+                <h3>New: Typing Animation Features:</h3>
+                <ul>
+                    <li><strong>Character-by-Character Display:</strong> Text appears one character at a time</li>
+                    <li><strong>Animated Cursor:</strong> Blinking cursor (▋) during typing</li>
+                    <li><strong>Real-time Markdown:</strong> Formatting appears as text is typed</li>
+                    <li><strong>Dynamic Speed:</strong> Automatically adjusts based on content length</li>
+                    <li><strong>Smooth Scrolling:</strong> Auto-scrolls as text grows</li>
+                    <li><strong>Customizable Speed:</strong> Can be adjusted for different effects</li>
+                    <li><strong>Natural Feel:</strong> Makes the chatbot feel more human and engaging</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🧪 Interactive Demo</h2>
+            <div class="demo-controls">
+                <button class="btn" onclick="showTypingLoader()">Show Typing Loader</button>
+                <button class="btn btn-secondary" onclick="hideTypingLoader()">Hide Typing Loader</button>
+                <button class="btn btn-success" onclick="simulateProcessing()">Simulate Processing</button>
+                <button class="btn btn-danger" onclick="simulateError()">Simulate Error</button>
+                <button class="btn btn-secondary" onclick="resetDemo()">Reset Demo</button>
+            </div>
+
+            <div class="status-indicator" id="statusIndicator">
+                Status: Ready
+            </div>
+
+            <!-- Typing Loader -->
+            <div class="typing-loader" id="typingLoader">
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+                <span class="typing-text">Agent is thinking...</span>
+            </div>
+
+            <!-- Typing Animation Demo -->
+            <div class="demo-controls" style="margin-top: 20px;">
+                <button class="btn btn-success" onclick="demoTypingAnimation()">Demo Typing Animation</button>
+                <button class="btn btn-secondary" onclick="demoFastTyping()">Fast Typing</button>
+                <button class="btn btn-secondary" onclick="demoSlowTyping()">Slow Typing</button>
+                <button class="btn btn-secondary" onclick="demoMarkdownTyping()">Markdown Typing</button>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>💬 Chat Simulation</h2>
+            <div class="chat-simulation">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message agent">
+                        <strong>Agent:</strong> Hello! I'm your ISO 27001 control generation assistant. How can I help you today?
+                    </div>
+                </div>
+                
+                <div class="chat-input" id="chatInput">
+                    <input type="text" id="chatInputField" placeholder="Type your message here..." onkeypress="if(event.key==='Enter') sendMessage()" />
+                    <button class="btn" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🔧 How It Works</h2>
+            <div style="background: #f7fafc; padding: 20px; border-radius: 10px;">
+                <h3>Implementation Details:</h3>
+                <ol style="margin-left: 20px; line-height: 2;">
+                    <li><strong>CSS Animations:</strong> Smooth bouncing dots with staggered delays</li>
+                    <li><strong>JavaScript Functions:</strong> showTypingLoader(), hideTypingLoader(), disableChatInput(), enableChatInput()</li>
+                    <li><strong>State Management:</strong> Properly shows/hides loader and manages input state</li>
+                    <li><strong>Error Handling:</strong> Ensures loader is hidden even when errors occur</li>
+                    <li><strong>User Experience:</strong> Prevents multiple submissions and provides clear feedback</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isProcessing = false;
+
+        // Typing loader functions
+        function showTypingLoader() {
+            const loader = document.getElementById("typingLoader");
+            const statusIndicator = document.getElementById("statusIndicator");
+            
+            loader.classList.add("show");
+            statusIndicator.textContent = "Status: Typing loader visible";
+            statusIndicator.className = "status-indicator active";
+        }
+
+        function hideTypingLoader() {
+            const loader = document.getElementById("typingLoader");
+            const statusIndicator = document.getElementById("statusIndicator");
+            
+            loader.classList.remove("show");
+            statusIndicator.textContent = "Status: Typing loader hidden";
+            statusIndicator.className = "status-indicator";
+        }
+
+        function disableChatInput() {
+            const chatInput = document.getElementById("chatInput");
+            chatInput.classList.add("disabled");
+        }
+
+        function enableChatInput() {
+            const chatInput = document.getElementById("chatInput");
+            chatInput.classList.remove("disabled");
+        }
+
+        function updateStatus(message, type = "") {
+            const statusIndicator = document.getElementById("statusIndicator");
+            statusIndicator.textContent = `Status: ${message}`;
+            statusIndicator.className = `status-indicator ${type}`;
+        }
+
+        async function simulateProcessing() {
+            if (isProcessing) return;
+            
+            isProcessing = true;
+            updateStatus("Processing started", "active");
+            
+            // Show typing loader and disable input
+            showTypingLoader();
+            disableChatInput();
+            
+            try {
+                // Simulate processing time
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                // Hide typing loader and enable input
+                hideTypingLoader();
+                enableChatInput();
+                updateStatus("Processing completed successfully", "active");
+                
+                // Add a simulated response
+                addChatMessage("agent", "Here are the controls I found for your query. I've identified several relevant controls that address your specific requirements.");
+                
+            } catch (error) {
+                hideTypingLoader();
+                enableChatInput();
+                updateStatus("Error occurred during processing", "error");
+            }
+            
+            isProcessing = false;
+        }
+
+        async function simulateError() {
+            if (isProcessing) return;
+            
+            isProcessing = true;
+            updateStatus("Processing started", "active");
+            
+            // Show typing loader and disable input
+            showTypingLoader();
+            disableChatInput();
+            
+            try {
+                // Simulate processing time
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Simulate an error
+                throw new Error("Simulated API error");
+                
+            } catch (error) {
+                hideTypingLoader();
+                enableChatInput();
+                updateStatus("Error occurred during processing", "error");
+                
+                // Add error message
+                addChatMessage("agent", "I encountered an error while processing your request. Please try again or contact support if the issue persists.");
+            }
+            
+            isProcessing = false;
+        }
+
+        function resetDemo() {
+            hideTypingLoader();
+            enableChatInput();
+            updateStatus("Ready");
+            
+            // Clear chat messages except the first one
+            const chatMessages = document.getElementById("chatMessages");
+            const firstMessage = chatMessages.querySelector(".message");
+            chatMessages.innerHTML = "";
+            chatMessages.appendChild(firstMessage);
+        }
+
+        // Typing animation demo functions
+        async function demoTypingAnimation() {
+            const message = "This is a demonstration of the typing animation feature. The text appears character by character, creating a realistic typing effect that makes the chatbot feel more human and engaging.";
+            addChatMessage("agent", message);
+        }
+
+        async function demoFastTyping() {
+            const message = "Fast typing demonstration with quick character appearance.";
+            addChatMessage("agent", message, 15); // 15ms per character
+        }
+
+        async function demoSlowTyping() {
+            const message = "Slow typing demonstration with deliberate character appearance.";
+            addChatMessage("agent", message, 80); // 80ms per character
+        }
+
+        async function demoMarkdownTyping() {
+            const message = "## Markdown Example\n\nThis demonstrates **bold text**, *italic text*, and `code snippets`.\n\n### Features:\n- **Real-time formatting**\n- *Dynamic styling*\n- `Code highlighting`\n\n> This creates a rich, engaging experience!";
+            addChatMessage("agent", message);
+        }
+
+        // Enhanced addChatMessage function with typing animation
+        function addChatMessage(sender, text, customSpeed = null) {
+            const container = document.getElementById("chatMessages");
+            const messageDiv = document.createElement("div");
+            messageDiv.className = `message ${sender}`;
+            
+            if (sender === "agent") {
+                // For agent messages, create typing animation
+                messageDiv.innerHTML = `<strong>Agent:</strong> <span class="typing-content"></span>`;
+                container.appendChild(messageDiv);
+                container.scrollTop = container.scrollHeight;
+                
+                // Start typing animation
+                typeMessage(messageDiv.querySelector(".typing-content"), text, customSpeed);
+            } else {
+                // For user messages, display immediately
+                messageDiv.innerHTML = `<strong>You:</strong> ${text}`;
+                container.appendChild(messageDiv);
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        // Enhanced typing animation function
+        async function typeMessage(element, text, customSpeed = null) {
+            const fullText = text;
+            let currentText = "";
+            let charIndex = 0;
+            
+            // Add typing class to show cursor
+            element.parentElement.classList.add("typing");
+            
+            // Determine typing speed
+            let typingSpeed = customSpeed || 30; // Default 30ms per character
+            
+            if (!customSpeed) {
+                // Auto-adjust speed based on content length
+                if (fullText.length > 500) {
+                    typingSpeed = 20; // Faster for long responses
+                } else if (fullText.length < 100) {
+                    typingSpeed = 50; // Slower for short responses
+                }
+                
+                // Check for markdown
+                const hasMarkdown = /[*#`]/.test(fullText);
+                if (hasMarkdown) {
+                    typingSpeed = Math.max(typingSpeed - 10, 15);
+                }
+            }
+            
+            while (charIndex < fullText.length) {
+                currentText += fullText[charIndex];
+                
+                // Apply basic markdown formatting during typing
+                const formattedText = formatMarkdown(currentText);
+                element.innerHTML = formattedText;
+                
+                charIndex++;
+                
+                // Scroll to bottom as text grows
+                const container = document.getElementById("chatMessages");
+                container.scrollTop = container.scrollHeight;
+                
+                // Wait before next character
+                await new Promise(resolve => setTimeout(resolve, typingSpeed));
+            }
+            
+            // Remove typing class and cursor
+            element.parentElement.classList.remove("typing");
+            
+            // Add a small delay to show the complete message
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        // Basic markdown formatting function
+        function formatMarkdown(text) {
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`(.*?)`/g, '<code>$1</code>')
+                .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+                .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function sendMessage() {
+            const input = document.getElementById("chatInputField");
+            const message = input.value.trim();
+
+            if (!message || isProcessing) return;
+
+            addChatMessage("user", message);
+            input.value = "";
+
+            // Simulate processing
+            simulateProcessing();
+        }
+    </script>
+</body>
+</html>

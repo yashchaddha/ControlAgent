@@ -108,6 +108,44 @@ class MongoDBService:
     def get_controls_by_annex(self, annex: str, user_id: str) -> List[Dict]:
         return list(self.controls.find({"annex_reference": {"$regex": f"^{annex}"}, "user_id": user_id}))
 
+    def search_controls_by_text(self, query_text: str, user_id: str, limit: int = 10) -> List[Dict]:
+        """Search controls by text query across multiple fields"""
+        try:
+            # Convert query to lowercase for case-insensitive search
+            query_lower = query_text.lower()
+            
+            # Create a regex pattern that matches the query text
+            regex_pattern = f".*{query_lower}.*"
+            
+            # Search across multiple fields
+            query = {
+                "user_id": user_id,
+                "$or": [
+                    {"title": {"$regex": regex_pattern, "$options": "i"}},
+                    {"description": {"$regex": regex_pattern, "$options": "i"}},
+                    {"control_statement": {"$regex": regex_pattern, "$options": "i"}},
+                    {"implementation_guidance": {"$regex": regex_pattern, "$options": "i"}},
+                    {"domain_category": {"$regex": regex_pattern, "$options": "i"}},
+                    {"annex_reference": {"$regex": regex_pattern, "$options": "i"}}
+                ]
+            }
+            
+            # Execute the search
+            results = list(self.controls.find(query).limit(limit))
+            
+            # Convert ObjectIds to strings
+            for result in results:
+                result = convert_objectid(result)
+                if "_id" in result:
+                    result["id"] = str(result["_id"])
+                    del result["_id"]
+            
+            return results
+            
+        except Exception as e:
+            print(f"Error searching controls by text: {e}")
+            return []
+
     def save_controls(self, controls: List[Dict]) -> List[str]:
         control_ids = []
         for control in controls:

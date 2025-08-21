@@ -7,6 +7,7 @@ from .database import mongodb
 from .neo4j_db import neo4j_service
 from .postgres import postgres_service
 import uuid
+import json
 
 # Configure logging for LangGraph agent
 logging.basicConfig(level=logging.INFO)
@@ -372,14 +373,14 @@ class ISO27001Agent:
                 
             elif intent == "generate_controls_all":
                 logger.info(f"   📋 Getting all risks without controls")
-                risks = self.mongo.get_user_risks(user_id, exclude_with_controls=False)
+                risks = self.rag.get_risks_for_generation(user_id, exclude_with_controls=False)
                 logger.info(f"   ✅ Found {len(risks)} risks without controls")
                 return {"risks_for_generation": risks}
                 
             elif intent == "generate_controls_category":
                 category = parameters.get("risk_category")
                 logger.info(f"   📋 Getting risks by category: {category}")
-                all_risks = self.mongo.get_user_risks(user_id)
+                all_risks = self.rag.get_risks_for_generation(user_id, exclude_with_controls=False)
                 risks = [r for r in all_risks if r.get("category") == category]
                 logger.info(f"   ✅ Found {len(risks)} risks in category: {category}")
                 return {"risks_for_generation": risks}
@@ -412,7 +413,12 @@ class ISO27001Agent:
                     logger.info(f"      📝 Generating controls for risk {i+1}/{len(risks)}: {risk.get('description', 'Unknown')[:50]}...")
                     
                     risk_context = self.rag.retrieve_context_for_control_generation(risk, state["user_context"])
-                    controls = self.openai.generate_controls(risk, state["user_context"])
+                    controls = self.openai.generate_controls(
+                        risk, 
+                        state["user_context"],
+                        risk_context.get("similar_controls", []),
+                        risk_context.get("iso_guidance", [])
+                    )
                     
                     # Ensure all required fields are present for each control
                     for j, control in enumerate(controls):
@@ -453,7 +459,13 @@ class ISO27001Agent:
                     return state
                 
                 logger.info(f"   📝 Generating controls for risk: {risk_data.get('description', 'Unknown')[:50]}...")
-                controls = self.openai.generate_controls(risk_data, state["user_context"])
+                risk_context = self.rag.retrieve_context_for_control_generation(risk_data, state["user_context"])
+                controls = self.openai.generate_controls(
+                    risk_data, 
+                    state["user_context"],
+                    risk_context.get("similar_controls", []),
+                    risk_context.get("iso_guidance", [])
+                )
                 
                 # Ensure all required fields are present for each control
                 for j, control in enumerate(controls):
@@ -660,6 +672,9 @@ class ISO27001Agent:
                 }
             }
             
+            # Ensure all values are JSON serializable
+            response_context = json.loads(json.dumps(response_context))
+            
             logger.info(f"   📊 Response context prepared:")
             logger.info(f"      Intent: {response_context['intent']}")
             logger.info(f"      Generated controls: {response_context['generated_controls_count']}")
@@ -668,10 +683,11 @@ class ISO27001Agent:
             logger.info(f"      Guidance found: {response_context['retrieved_context_summary']['guidance_found']}")
             
             self.rag.store_query_embedding(
-                query=state["user_query"],
-                user_id=state["user_id"],
-                intent=state.get("intent", "unknown"),
-                response_context=response_context
+                str(uuid.uuid4()),  # query_id
+                state["user_id"],
+                state["user_query"],
+                state.get("intent", "unknown"),
+                response_context
             )
             logger.info(f"   ✅ Query embedding stored successfully")
             
@@ -694,11 +710,43 @@ class ISO27001Agent:
                 # Try the enhanced contextual response first
                 try:
                     logger.info(f"   🚀 Attempting enhanced contextual response")
-                    state["final_response"] = self.openai.generate_contextual_response(
-                        state["user_query"],
-                        state["retrieved_context"],
-                        state["user_context"]
+                    
+                    # Check if this is a "show controls" type query
+                    intent = state.get("intent", "")
+                    
+                    # Check if we have controls in the context (regardless of intent)
+                    has_controls = bool(
+                        state.get("retrieved_context", {}).get("similar_controls") or 
+                        state.get("retrieved_context", {}).get("controls") or
+                        state.get("retrieved_context", {}).get("existing_controls") or
+                        state.get("retrieved_context", {}).get("text_search_controls")
                     )
+                    
+                    # Use show controls response for specific annex queries or when we have controls
+                    if (intent.startswith("show_controls_by_annex") or 
+                        (intent.startswith("show_controls") and "annex" in state.get("user_query", "").lower())):
+                        logger.info(f"   🎯 Using show controls response method (annex-specific)")
+                        state["final_response"] = self.openai.generate_show_controls_response(
+                            state["user_query"],
+                            state["retrieved_context"],
+                            state["user_context"]
+                        )
+                    # Use enhanced general controls response when we have controls (regardless of intent)
+                    elif has_controls:
+                        logger.info(f"   🎯 Using enhanced general controls response (controls found)")
+                        state["final_response"] = self.openai.generate_general_controls_response(
+                            state["user_query"],
+                            state["retrieved_context"],
+                            state["user_context"]
+                        )
+                    else:
+                        logger.info(f"   🎯 Using contextual response method (general query)")
+                        state["final_response"] = self.openai.generate_contextual_response(
+                            state["user_query"],
+                            state["retrieved_context"],
+                            state["user_context"]
+                        )
+                    
                     logger.info(f"      ✅ Enhanced response generated successfully")
                     
                 except Exception as e:

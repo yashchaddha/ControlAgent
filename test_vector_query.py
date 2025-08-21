@@ -1,104 +1,76 @@
 #!/usr/bin/env python3
 """
-Simple test to debug vector search query directly
+Simple test script to test vector search directly
 """
 
-import sys
+import psycopg2
 import os
+from dotenv import load_dotenv
 
-# Add the app directory to the Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'app'))
-
-def test_vector_query_directly():
-    """Test the vector search query directly"""
-    
-    print("🔍 Testing Vector Search Query Directly")
-    print("=" * 40)
+def test_vector_search():
+    """Test vector search directly"""
+    print("🧪 Testing Vector Search Directly")
+    print("=" * 50)
     
     try:
-        from app.postgres import postgres_service
-        from app.openai_service import openai_service
+        # Load environment variables
+        load_dotenv()
         
-        if not postgres_service.conn:
-            print("❌ No database connection")
+        # Connect to database
+        postgres_uri = os.getenv("POSTGRES_URI")
+        if not postgres_uri:
+            print("❌ POSTGRES_URI not found")
             return
         
-        print("✅ Database connected")
+        print("🔌 Connecting to PostgreSQL...")
+        conn = psycopg2.connect(postgres_uri)
+        print("   ✅ Connected successfully")
         
-        # Generate a test embedding
-        test_query = "supply chain"
-        test_embedding = openai_service.get_embedding(test_query)
-        print(f"✅ Test embedding generated: {len(test_embedding)} dimensions")
-        print(f"   First 5 values: {test_embedding[:5]}")
-        
-        # Test the vector search query directly
-        print("\n📊 Testing vector search query directly:")
-        
-        with postgres_service.conn.cursor() as cur:
-            # First, check if we can see the data
-            print("1️⃣ Checking if data exists:")
-            cur.execute("SELECT COUNT(*) FROM risk_embeddings")
-            count = cur.fetchone()[0]
-            print(f"   Risk embeddings count: {count}")
-            
-            if count > 0:
-                print("2️⃣ Checking actual data:")
-                cur.execute("SELECT risk_id, description FROM risk_embeddings LIMIT 2")
-                risks = cur.fetchall()
-                for i, risk in enumerate(risks):
-                    print(f"   Risk {i+1}: {risk[0]} - {risk[1][:50]}...")
-                
-                print("3️⃣ Testing vector similarity query:")
-                try:
-                    # Test the exact query from the search function
-                    cur.execute("""
-                        SELECT risk_id, user_id, description, category,
-                               1 - (embedding <=> %s::vector) as similarity
-                        FROM risk_embeddings
-                        ORDER BY embedding <=> %s::vector
-                        LIMIT 5
-                    """, (test_embedding, test_embedding))
-                    
-                    results = cur.fetchall()
-                    print(f"   Query executed successfully, returned {len(results)} results")
-                    
-                    if results:
-                        print("   Top results:")
-                        for i, result in enumerate(results[:3]):
-                            print(f"     {i+1}. Similarity: {result[4]:.3f}")
-                            print(f"        Description: {result[2][:60]}...")
-                    else:
-                        print("   ❌ No results returned from query")
-                        
-                except Exception as e:
-                    print(f"   ❌ Vector query failed: {e}")
-                    print(f"   Error type: {type(e).__name__}")
-                    
-                    # Try a simpler query to see what's wrong
-                    print("\n4️⃣ Testing simpler vector query:")
-                    try:
-                        cur.execute("SELECT embedding FROM risk_embeddings LIMIT 1")
-                        embedding_sample = cur.fetchone()
-                        if embedding_sample:
-                            print(f"   ✅ Can read embeddings from table")
-                            print(f"   Embedding type: {type(embedding_sample[0])}")
-                        else:
-                            print("   ❌ No embeddings found")
-                    except Exception as e2:
-                        print(f"   ❌ Simple embedding read failed: {e2}")
+        with conn.cursor() as cur:
+            # Check embedding type
+            print("\n📊 Checking embedding type...")
+            cur.execute("SELECT embedding FROM control_embeddings LIMIT 1")
+            emb = cur.fetchone()
+            if emb:
+                print(f"   Embedding type: {type(emb[0])}")
+                print(f"   Embedding value: {str(emb[0])[:100]}...")
             else:
-                print("   ❌ No risk embeddings found in table")
+                print("   ❌ No embeddings found")
+                return
+            
+            # Test vector search
+            print("\n🔍 Testing vector search...")
+            test_emb = [0.1] * 1536
+            print(f"   Test embedding length: {len(test_emb)}")
+            
+            try:
+                # Test the vector similarity operator
+                cur.execute("""
+                    SELECT control_id, title, 
+                           1 - (embedding <=> %s::vector) as similarity
+                    FROM control_embeddings
+                    ORDER BY embedding <=> %s::vector
+                    LIMIT 3
+                """, (test_emb, test_emb))
+                
+                results = cur.fetchall()
+                print(f"   ✅ Vector search successful: {len(results)} results")
+                
+                for i, result in enumerate(results):
+                    print(f"      Result {i+1}: {result[0]} - {result[1][:50]}... (similarity: {result[2]:.3f})")
+                    
+            except Exception as e:
+                print(f"   ❌ Vector search failed: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        conn.close()
+        print("\n✅ Vector search test completed!")
         
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print(f"\n❌ Test failed: {e}")
         import traceback
         traceback.print_exc()
 
 if __name__ == "__main__":
-    print("🚀 Vector Query Direct Test")
-    print("This will test the vector search query directly")
-    print()
-    
-    test_vector_query_directly()
-    
-    print("\n�� Test completed!")
+    test_vector_search()
